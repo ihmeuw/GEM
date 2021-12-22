@@ -154,6 +154,9 @@ all[source=='Yougov', super_region_name:='High-income']
 #exclude fb ssa
 all <- all[!(source=='FB Symptoms' & super_region_name=='Sub-Saharan Africa' & outcome=='preventative_health_covid')]
 all <- all[!(source=='FB Symptoms' & super_region_name=='Sub-Saharan Africa' & outcome=='healthcare_covid')]
+
+#exclude IPA RECOVR employment loss
+all <- all[!(source=='IPA recovr trend' & outcome=='emp_lost_combined')]
 number_plugging <- all[, .(N, covs, n_countries, OR, OR_lwr, OR_upr, N_female, N_male, super_region_name, ind_label, ind_category, predictor, survey_name)]
 write.csv(number_plugging, paste0(out_dir, 'number_plugging_ORs.csv'), row.names=F)
 
@@ -477,20 +480,20 @@ row_titles <- ggdraw() + draw_label('3. Multivariate regressions                
 row_titles_cs <- ggdraw() + draw_label('2. Multivariate regressions                                       1. Cross-sectional gender gaps', fontface='bold', angle=90, size=14)
 
 #fig titles
-vax_fig_title <- ggdraw() + draw_label('Figure 2. Time series, September 2021 cross-sectional, and multivariate logistic regression analyses results for vaccination hesitancy and uptake indicators.', fontface='plain', size=14)
-hc_fig_title <- ggdraw() + draw_label('Figure 3. Time series analysis, cross-sectional analyses, and multivariate logistic regression analysis results for healthcare access indicators.', fontface='plain', size=14)
+vax_fig_title <- ggdraw() + draw_label('Figure 1. Time series, September 2021 cross-sectional, and multivariate logistic regression analyses results for vaccination hesitancy and uptake indicators.', fontface='plain', size=14)
+hc_fig_title <- ggdraw() + draw_label('Figure 2. Time series analysis, cross-sectional analyses, and multivariate logistic regression analysis results for healthcare access indicators.', fontface='plain', size=14)
 edu_fig_title <- ggdraw() + draw_label('Figure 4. Cross-sectional and multivariate logistic regression analyses results for education indicators.', fontface='plain', size=14)
-econ_fig_title <- ggdraw() + draw_label('Figure 5. Time series, cross-sectional, and multivariate logistic regression analyses results for economic and work-related concerns indicators.', fontface='plain', size=14)
-safety_fig_title <- ggdraw() + draw_label('Figure 6. Cross-sectional and multivariate logistic regression analyses results for safety at home and in the community indicators.', fontface='plain', size=14)
+econ_fig_title <- ggdraw() + draw_label('Figure 3. Time series, cross-sectional, and multivariate logistic regression analyses results for economic and work-related concerns indicators.', fontface='plain', size=14)
+safety_fig_title <- ggdraw() + draw_label('Figure 5. Cross-sectional and multivariate logistic regression analyses results for safety at home and in the community indicators.', fontface='plain', size=14)
 
 #vaccination
-pdf(paste0(out_dir,"Fig2_vax.pdf"),width=20,height=14)
+pdf(paste0(out_dir,"Fig1_vax.pdf"),width=20,height=14)
 plot_grid(vax_fig_title,
           plot_grid(row_titles,
-          plot_grids_ts$`Vaccine hesitancy`,
-          plot_grids_ts$`Fully vaccinated`,
-          ncol=3,
-          rel_widths=c(0.05,1,1.05)),
+                    plot_grids_ts$`Vaccine hesitancy`,
+                    plot_grids_ts$`Fully vaccinated`,
+                    ncol=3,
+                    rel_widths=c(0.05,1,1.05)),
           ncol=1,
           rel_heights=c(0.05, 1),
           hjust='0')
@@ -500,39 +503,39 @@ dev.off()
 pdf(paste0(out_dir,"Fig4_educ.pdf"),width=20,height=9.3338)
 plot_grid(edu_fig_title,
           plot_grid(row_titles_cs,
-          plot_grids_cs$`School drop out`,
-          plot_grids_cs$`Adequate remote learning`,
-          ncol=3,
-          rel_widths=c(0.05,1,1.05)),
+                    plot_grids_cs$`School drop out`,
+                    plot_grids_cs$`Adequate remote learning`,
+                    ncol=3,
+                    rel_widths=c(0.05,1,1.05)),
           ncol=1,
           rel_heights=c(0.05, 1),
           hjust='0')
 dev.off()
 
 #safety at home
-pdf(paste0(out_dir,"Fig6_safety.pdf"),width=20,height=9.3338)
+pdf(paste0(out_dir,"Fig5_safety.pdf"),width=20,height=9.3338)
 plot_grid(safety_fig_title,
           plot_grid(row_titles_cs,
-          plot_grids_cs$`Perception of GBV Increase`,
-          plot_grids_cs$`Feeling unsafe at home`,
-          ncol=3,
-          rel_widths=c(0.05,1,1.05)),
+                    plot_grids_cs$`Perception of GBV Increase`,
+                    plot_grids_cs$`Feeling unsafe at home`,
+                    ncol=3,
+                    rel_widths=c(0.05,1,1.05)),
           ncol=1,
           rel_heights=c(0.05, 1),
           hjust='0')
 dev.off()
 
 #Econ
-pdf(paste0(out_dir,"Fig5_econ.pdf"),width=30,height=14)
+pdf(paste0(out_dir,"Fig3_econ.pdf"),width=30,height=14)
 plot_grid(econ_fig_title,
           plot_grid(row_titles,
-          plot_grids_ts$`Employment loss`,
-          plot_grids_cs2$`Income loss`,
-          plot_grids_cs2$`Increase in care for others`,
-          plot_grids_cs2$`Increase in chores`,
-          plot_grids_ts$`Not working to care for others`,
-          ncol=6,
-          rel_widths=c(0.05,2.3,1,1,1,2.3)),
+                    plot_grids_ts$`Employment loss`,
+                    plot_grids_cs2$`Income loss`,
+                    plot_grids_cs2$`Increase in care for others`,
+                    plot_grids_cs2$`Increase in chores`,
+                    plot_grids_ts$`Not working to care for others`,
+                    ncol=6,
+                    rel_widths=c(0.05,2.3,1,1,1,2.3)),
           ncol=1,
           rel_heights=c(0.05, 1),
           hjust='0')
@@ -541,17 +544,18 @@ dev.off()
 
 
 #health
-pdf(paste0(out_dir,"Fig3_health.pdf"),width=30,height=14)
+pdf(paste0(out_dir,"Fig2_health.pdf"),width=30,height=14)
 plot_grid(hc_fig_title,
-plot_grid(row_titles,
-          plot_grids_ts$`Any disruption in health care`,
-          plot_grids_cs2$`Disruption in reproductive health`,
-          plot_grids_ts$`Disruption in preventative care`,
-          plot_grids_ts$`Disruption in medication access`,
-          plot_grids_ts$`Disruption health product access`,
-          ncol=6,
-          rel_widths=c(0.05,2.3,1,1,1,2.3)),
-ncol=1,
-rel_heights=c(0.05, 1),
-hjust='0')
+          plot_grid(row_titles,
+                    plot_grids_ts$`Any disruption in health care`,
+                    plot_grids_cs2$`Disruption in reproductive health`,
+                    plot_grids_ts$`Disruption in preventative care`,
+                    plot_grids_ts$`Disruption in medication access`,
+                    plot_grids_ts$`Disruption health product access`,
+                    ncol=6,
+                    rel_widths=c(0.05,2.3,1,1,1,2.3)),
+          ncol=1,
+          rel_heights=c(0.05, 1),
+          hjust='0')
 dev.off()
+
