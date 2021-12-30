@@ -4,7 +4,7 @@
 
 rm(list=ls())
 
-output_dir <- paste0('/FILEPATH/')
+output_dir <- paste0('FILEPATH')
 
 
 ##### 0. SET UP #############################################################################################################################################################
@@ -13,7 +13,7 @@ output_dir <- paste0('/FILEPATH/')
 pacman::p_load(data.table, dplyr, ggplot2,parallel,stringr,gridExtra,cowplot,lme4,boot)
 
 #location metadata
-source(file.path("/FILEPATH/get_location_metadata.R"))
+source(file.path("FILEPATH/get_location_metadata.R"))
 hierarchy <- get_location_metadata(111, 771, release_id = 9)
 
 #not functions
@@ -28,7 +28,7 @@ aesth <- theme_bw() + theme(axis.title = element_text(size=12,face='bold'),axis.
 ##### 1. GET + FORMAT DATA ##################################################################################################################################################
 
 #pull data
-gpr_final <- fread('/FILEPATH/monthly_gpr_output_draws.csv')
+gpr_final <- fread('FILEPATH')
 gpr_final$V1 <- NULL
 gpr_final$location_id <- NULL
 
@@ -49,8 +49,8 @@ gpr_final[, gpr_upper_ci := inv.logit(gpr_upper)*0.95]
 
 ##### 2. RAKE DATA ##########################################################################################################################################################
 
-#get covid population data
-pop_full <- fread("/FILEPATH/")
+#get covid pop data
+pop_full <- fread("FILEPATH")
 adults <- c(66, 67, 9:19,20,30:32,235) #18 and older
 adult_pop <- pop_full[age_group_id %in% adults, lapply(.SD, function(x) sum(x)), by=c("location_id", "sex_id"), .SDcols = "population"]
 adult_pop <- merge(adult_pop, hierarchy[, .(location_id, ihme_loc_id)], by = c('location_id'))
@@ -70,7 +70,7 @@ scalars <- merge(rake_sex[, c('month', 'ihme_loc_id', 'sex_id', 'indicator', 'wt
                  by = c('month', 'ihme_loc_id', 'indicator'))
 
 #caclulate scalar/ratio
-scalars[, scale := gpr_pred/wt_mean_sex] 
+scalars[, scale := gpr_pred/wt_mean_sex] #scale is same for males and females in same location-month-indicator
 scalars <- as.data.table(unique(scalars[, c('ihme_loc_id', 'month', 'indicator', 'scale')]))
 
 #merge onto data
@@ -93,22 +93,41 @@ gpr_final[raked_lower <= 0, raked_lower := 0]
 ##### 3. PLOT + VET REGRESSION ##############################################################################################################################
 
 #create plot data
-plot_data <- gpr_final[month < 22 & month >= 3] 
+plot_data <- gpr_final[month < 22 & month >= 3] #updated to <22, before October 2021
 plot_data[data_source %like% 'CDC' | data_source %like% 'Our World in Data', data_source := 'Official']
 plot_data[data_source %like% 'Facebook Global Symptoms Survey', data_source := 'COVID-19 Trends and Impact Survey']
 
-#fix gender vs. sex
+#specify gender vs. sex
 plot_data[sex == "Female", gender := 'Women']
 plot_data[sex == "Male", gender := 'Men']
 plot_data[sex == "Both", gender := 'Both']
 
 ##### input data vs. linear regression vs. gpr -------------------
 
+codebook <- fread("FILEPATH")
+setnames(codebook, 'ind_name', 'indicator')
+plot_data <- plot_data[indicator != 'vaccinated']
+plot_data[indicator == 'fully_vaccinated', indicator := 'fullvax']
+plot_data[indicator == 'hesitancy', indicator := 'getvax']
+plot_data <- merge(plot_data, codebook[, c('indicator', 'ind_label')], by = 'indicator', all.x = T)
+
+plot_data[ind_label == 'Disruption health product access', ind_label := "Disruption in health products access"]
+
+#factor locations, indicators, and labels
+ind_loop <- c("getvax" ,"fullvax", "healthcare_covid", "preventative_health_covid", "medication_covid","health_products_covid", "emp_lost_combined", "notworking_careothers")
+plot_data[, ind_label:=factor(ind_label, levels=c("Vaccine hesitancy" ,"Fully vaccinated",
+                                                  "Any disruption in health care",
+                                                  "Disruption in preventative care",
+                                                  "Disruption in medication access","Disruption in health products access",
+                                                  "Employment loss", "Not working to care for others",
+                                                  "Perception of GBV Increase", "Feeling unsafe at home"))]
+
 gg <-list()
 
-for (i in unique(plot_data$indicator)) {
+for (i in ind_loop) {
   for (r in unique(plot_data[indicator == i, super_region_name])){
-    if (i == 'hesitancy') {
+    title <- unique(plot_data[indicator == i & super_region_name == r]$ind_label)
+    if (i == 'getvax') {
       for (a in unique(plot_data[indicator == i & super_region_name == r, age])) {
         gg[[paste0(i,r,a)]] <- ggplot(plot_data[indicator == i & super_region_name == r & age == a], 
                                       aes(x = month, y = proportion, color = gender, fill = gender, group = interaction(gender, age))) +
@@ -120,9 +139,11 @@ for (i in unique(plot_data$indicator)) {
           geom_ribbon(aes(ymin = gpr_lower_ci, ymax = gpr_upper_ci), alpha = 0.3, colour = NA) +
           scale_color_manual(values = c('Women' = 'deeppink', 'Men' = 'dodgerblue')) +
           scale_fill_manual(values = c('Women' = 'deeppink', 'Men' = 'dodgerblue')) +
-          facet_wrap(~ihme_loc_id) +
-          labs(title = paste0(r, ": ", i),
+          facet_wrap(~lancet_label) +
+          labs(title = paste0(r, ": ", title),
                caption = 'January 2020 - September 2021 (Months 1-21)') +
+          xlab('Month') +
+          ylab('Proportion') +
           aesth
       }
     }else {
@@ -136,15 +157,17 @@ for (i in unique(plot_data$indicator)) {
        geom_ribbon(aes(ymin = gpr_lower_ci, ymax = gpr_upper_ci), alpha = 0.3, colour = NA) +
        scale_color_manual(values = c('Women' = 'deeppink', 'Men' = 'dodgerblue', 'Both' = 'green3')) +
        scale_fill_manual(values = c('Women' = 'deeppink', 'Men' = 'dodgerblue', 'Both' = 'green3')) +
-       facet_wrap(~ihme_loc_id) +
-       labs(title = paste0(r, ": ", i),
+       facet_wrap(~lancet_label) +
+       labs(title = paste0(r, ": ", title),
             caption = 'January 2020 - September 2021 (Months 1-21)') +
+       xlab('Month') +
+       ylab('Proportion') +
        aesth
     }
   }
 }
 
-pdf(paste0(output_dir, 'FILEPATH.pdf'),14,8)
+pdf(paste0(output_dir, 'FILEPATH'),14,8)
 print(gg[1:length(gg)])
 dev.off()
 
@@ -155,9 +178,10 @@ rm(gg)
 
 gg <-list()
 
-for (i in unique(plot_data$indicator)) {
+for (i in ind_loop) {
   for (r in unique(plot_data[indicator == i, super_region_name])){
-    if (i == 'hesitancy') {
+    title <- unique(plot_data[indicator == i & super_region_name == r]$ind_label)
+    if (i == 'getvax') {
       for (a in unique(plot_data[indicator == i & super_region_name == r, age])) {
         gg[[paste0(i,r,a)]] <- ggplot(plot_data[indicator == i & super_region_name == r & age == a], 
                                       aes(x = month, y = proportion, color = gender, fill = gender, group = interaction(gender, age))) +
@@ -168,9 +192,11 @@ for (i in unique(plot_data$indicator)) {
           geom_ribbon(aes(ymin = raked_lower, ymax = raked_upper), alpha = 0.3, colour = NA) +
           scale_color_manual(values = c('Women' = 'deeppink', 'Men' = 'dodgerblue')) +
           scale_fill_manual(values = c('Women' = 'deeppink', 'Men' = 'dodgerblue')) +
-          facet_wrap(~ihme_loc_id) +
-          labs(title = paste0(r, ": ", i),
+          facet_wrap(~lancet_label) +
+          labs(title = paste0(r, ": ", title),
                caption = 'January 2020 - September 2021 (Months 1-21)') +
+          xlab('Month') +
+          ylab('Proportion') +
           aesth
       }
     }else {
@@ -184,14 +210,14 @@ for (i in unique(plot_data$indicator)) {
         scale_color_manual(values = c('Women' = 'deeppink', 'Men' = 'dodgerblue', 'Both' = 'green3')) +
         scale_fill_manual(values = c('Women' = 'deeppink', 'Men' = 'dodgerblue', 'Both' = 'green3')) +
         facet_wrap(~ihme_loc_id) +
-        labs(title = paste0(r, ": ", i),
+        labs(title = paste0(r, ": ", title),
              caption = 'January 2020 - September 2021 (Months 1-21)') +
         aesth
     }
   }
 }
 
-pdf(paste0(output_dir, 'FILEPATH.pdf'),14,8)
+pdf(paste0(output_dir, 'FILEPATH'),14,8)
 print(gg[1:length(gg)])
 dev.off()
 
